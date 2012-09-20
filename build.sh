@@ -11,7 +11,7 @@ OPENSSL_VERSION="1.0.1c"
 
 DEVELOPER="/Applications/Xcode.app/Contents/Developer"
 
-SDK_VERSION="6.0"
+SDK_VERSION="5.1"
 
 IPHONEOS_PLATFORM="${DEVELOPER}/Platforms/iPhoneOS.platform"
 IPHONEOS_SDK="${IPHONEOS_PLATFORM}/Developer/SDKs/iPhoneOS${SDK_VERSION}.sdk"
@@ -23,9 +23,13 @@ IPHONESIMULATOR_GCC="${IPHONESIMULATOR_PLATFORM}/Developer/usr/bin/gcc"
 
 # Clean up whatever was left from our previous build
 
+PWD_PATH="${PWD}"
+
 rm -rf include lib
-rm -rf "/tmp/openssl-${OPENSSL_VERSION}-*"
-rm -rf "/tmp/openssl-${OPENSSL_VERSION}-*.log"
+rm -rf "${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-*"
+rm -rf "${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-*.log"
+
+[[ ! -d "${PWD_PATH}/tmp" ]] && mkdir "${PWD_PATH}/tmp"
 
 build()
 {
@@ -36,37 +40,40 @@ build()
    tar xfz "openssl-${OPENSSL_VERSION}.tar.gz"
    pushd .
    cd "openssl-${OPENSSL_VERSION}"
-   ./Configure BSD-generic32 --openssldir="/tmp/openssl-${OPENSSL_VERSION}-${ARCH}" &> "/tmp/openssl-${OPENSSL_VERSION}-${ARCH}.log"
+   ./Configure BSD-generic32 --openssldir="${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH}" &> "${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH}.log"
    perl -i -pe 's|static volatile sig_atomic_t intr_signal|static volatile int intr_signal|' crypto/ui/ui_openssl.c
    perl -i -pe "s|^CC= gcc|CC= ${GCC} -arch ${ARCH}|g" Makefile
    perl -i -pe "s|^CFLAG= (.*)|CFLAG= -isysroot ${SDK} \$1|g" Makefile
-   make &> "/tmp/openssl-${OPENSSL_VERSION}-${ARCH}.log"
-   make install &> "/tmp/openssl-${OPENSSL_VERSION}-${ARCH}.log"
+   make &> "${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH}.log"
+   make install &> "${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH}.log"
    popd
    rm -rf "openssl-${OPENSSL_VERSION}"
 }
 
-build "armv7" "${IPHONEOS_GCC}" "${IPHONEOS_SDK}"
-build "armv7s" "${IPHONEOS_GCC}" "${IPHONEOS_SDK}"
-build "i386" "${IPHONESIMULATOR_GCC}" "${IPHONESIMULATOR_SDK}"
+ARCH_ARMV7="armv7"
+build "${ARCH_ARMV7}" "${IPHONEOS_GCC}" "${IPHONEOS_SDK}"
+ARCH_ARMV7S="armv6"
+build "${ARCH_ARMV7S}" "${IPHONEOS_GCC}" "${IPHONEOS_SDK}"
+ARCH_I386="i386"
+build "${ARCH_I386}" "${IPHONESIMULATOR_GCC}" "${IPHONESIMULATOR_SDK}"
 
 #
 
 mkdir include
-cp -r /tmp/openssl-${OPENSSL_VERSION}-i386/include/openssl include/
+cp -r ${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH_I386}/include/openssl include/
 
 mkdir lib
 lipo \
-	"/tmp/openssl-${OPENSSL_VERSION}-armv7/lib/libcrypto.a" \
-	"/tmp/openssl-${OPENSSL_VERSION}-armv7s/lib/libcrypto.a" \
-	"/tmp/openssl-${OPENSSL_VERSION}-i386/lib/libcrypto.a" \
+	"${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH_ARMV7}/lib/libcrypto.a" \
+	"${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH_ARMV7S}/lib/libcrypto.a" \
+	"${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH_I386}/lib/libcrypto.a" \
 	-create -output lib/libcrypto.a
 lipo \
-	"/tmp/openssl-${OPENSSL_VERSION}-armv7/lib/libssl.a" \
-	"/tmp/openssl-${OPENSSL_VERSION}-armv7s/lib/libssl.a" \
-	"/tmp/openssl-${OPENSSL_VERSION}-i386/lib/libssl.a" \
+	"${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH_ARMV7}/lib/libssl.a" \
+	"${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH_ARMV7S}/lib/libssl.a" \
+	"${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-${ARCH_I386}/lib/libssl.a" \
 	-create -output lib/libssl.a
 
-rm -rf "/tmp/openssl-${OPENSSL_VERSION}-*"
-rm -rf "/tmp/openssl-${OPENSSL_VERSION}-*.log"
+rm -rf "${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-*"
+rm -rf "${PWD_PATH}/tmp/openssl-${OPENSSL_VERSION}-*.log"
 
